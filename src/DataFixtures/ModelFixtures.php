@@ -23,19 +23,13 @@ class ModelFixtures extends Fixture
             $name = $this->faker->word;
 
             $model = new ModelEntity(
-                id: $this->faker->unique()->numberBetween(1, 1000),
                 filename: $name . '.py',
                 name: $name,
                 type: $this->faker->word,
-                status: $this->faker->randomElement(['active', 'inactive', 'training']),
-                uploadedAt: $this->faker->dateTimeThisYear,
-                uploadedBy: $this->faker->name,
                 weight: $this->faker->randomFloat(2, 0.1, 100.0),
-                weightUnitSize: $this->faker->randomElement(['KB', 'MB', 'GB']),
-                flops: $this->faker->randomFloat(2, 1, 10000),
-                lastTrain: $this->faker->dateTimeThisMonth,
-                deployed: $this->faker->boolean
             );
+            $model->setStatus($this->faker->randomElement(['active', 'inactive', 'training']));
+            $model->setUploadedBy($this->faker->name);
 
             $manager->persist($model);
         }

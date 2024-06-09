@@ -6,41 +6,54 @@ use App\Repository\ModelEntityRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Knp\DoctrineBehaviors\Model\Timestampable\Timestampable;
+use Ramsey\Uuid\Doctrine\UuidGenerator;
+use Ramsey\Uuid\UuidInterface;
 
 #[ORM\Entity(repositoryClass: ModelEntityRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class ModelEntity
 {
-    public function __construct(
-        #[ORM\Id]
-        #[ORM\GeneratedValue]
-        #[ORM\Column(type: "integer")]
-        private int $id,
+    use Timestampable;
+
+    #[ORM\Id]
+    #[ORM\Column(type: "uuid", unique: true)]
+    #[ORM\GeneratedValue(strategy: "CUSTOM")]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    private UuidInterface $id;
+
+    #[ORM\Column(type: "string", nullable: true)]
+    private string $status = "inactive";
+
+    #[ORM\Column(type: "string", nullable: true)]
+    private string $uploadedBy = "incomming";
+
+    #[ORM\Column(type: "string")]
+    private ?string $weightUnitSize = null;
+
+    #[ORM\Column(type: "float", nullable: true)]
+    private float $flops = 0.0;
+
+    #[ORM\Column(type: "datetime", nullable: true)]
+    private ?\DateTimeInterface $lastTrain = null;
+
+    #[ORM\Column(type: "boolean", nullable: true)]
+    private bool $deployed = false;
+
+    #[Pure] public function __construct(
         #[ORM\Column(type: "string")]
         private string $filename,
         #[ORM\Column(type: "string")]
         private string $name,
         #[ORM\Column(type: "string")]
         private string $type,
-        #[ORM\Column(type: "string")]
-        private string $status,
-        #[ORM\Column(type: "datetime")]
-        private \DateTimeInterface $uploadedAt,
-        #[ORM\Column(type: "string")]
-        private string $uploadedBy,
         #[ORM\Column(type: "float")]
         private float $weight,
-        #[ORM\Column(type: "string")]
-        private string $weightUnitSize,
-        #[ORM\Column(type: "float")]
-        private float $flops,
-        #[ORM\Column(type: "datetime")]
-        private \DateTimeInterface $lastTrain,
-        #[ORM\Column(type: "boolean")]
-        private bool $deployed,
     ) {
+        $this->setFilename($filename);
     }
 
-    public function getId(): int
+    public function getId(): UuidInterface
     {
         return $this->id;
     }
@@ -52,7 +65,7 @@ class ModelEntity
 
     public function setFilename(string $filename): void
     {
-        $this->filename = $filename;
+        $this->filename = str_replace(['-', '_'], ' ', str_replace(['  ', '.py'], '', $filename));
     }
 
     public function getName(): string
@@ -85,16 +98,6 @@ class ModelEntity
         $this->status = $status;
     }
 
-    public function getUploadedAt(): \DateTimeInterface
-    {
-        return $this->uploadedAt;
-    }
-
-    public function setUploadedAt(\DateTimeInterface $uploadedAt): void
-    {
-        $this->uploadedAt = $uploadedAt;
-    }
-
     public function getUploadedBy(): string
     {
         return $this->uploadedBy;
@@ -120,9 +123,10 @@ class ModelEntity
         return $this->weightUnitSize;
     }
 
-    public function setWeightUnitSize(string $weightUnitSize): void
+    #[ORM\PrePersist]
+    public function setWeightUnitSize(): void
     {
-        $this->weightUnitSize = $weightUnitSize;
+        $this->weightUnitSize = ['B', 'KB', 'MB', 'GB', 'TB'][$this->getWeight() > 0 ? floor(log($this->getWeight(), 1024)) : 0];
     }
 
     public function getFlops(): float

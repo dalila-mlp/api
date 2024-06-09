@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Ramsey\Uuid\UuidInterface;
 
 #[Route("/model")]
 final class ModelController extends AbstractController
@@ -36,26 +37,42 @@ final class ModelController extends AbstractController
     #[Route("/create", methods: ["POST"])]
     public function createModel(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        $file = $request->files->get('file');
+
+        if (!$file) {
+            return $this->json(['message' => 'No file uploaded'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($file->getClientOriginalExtension() !== 'py') {
+            return $this->json(['message' => 'Invalid file extension. Only .py files are allowed.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = $request->request->all();
+
+        if (empty($data['name']) || empty($data['type'])) {
+            return $this->json(['message' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
+        }
 
         $model = new ModelEntity(
-            id: 0, // This will be auto-generated
-            filename: $data['filename'],
+            filename: $file->getClientOriginalName(),
             name: $data['name'],
             type: $data['type'],
-            status: $data['status'],
-            uploadedAt: new \DateTime($data['uploadedAt']),
-            uploadedBy: $data['uploadedBy'],
-            weight: $data['weight'],
-            flops: $data['flops'],
-            lastTrain: new \DateTime($data['lastTrain']),
-            deployed: $data['deployed']
+            weight: $file->getSize(),
         );
 
         $this->entityManager->persist($model);
         $this->entityManager->flush();
 
-        return $this->json($model, 201);
+        try {
+            $file->move(
+                $this->getParameter('kernel.project_dir') . '/public/uploads/models',
+                $model->getId() . '.py',
+            );
+        } catch (FileException $e) {
+            return $this->json(['message' => 'Failed to upload file'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($model, Response::HTTP_CREATED);
     }
 
     #[Route("/{id}", methods: ["GET"])]
@@ -64,10 +81,10 @@ final class ModelController extends AbstractController
         $model = $this->modelRepository->find($id);
 
         if (!$model) {
-            return $this->json(['message' => 'Model not found'], 404);
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
-        return $this->json($model);
+        return $this->json($model, Response::HTTP_OK);
     }
 
     #[Route("/{id}/update", methods: ["PUT"])]
@@ -76,7 +93,7 @@ final class ModelController extends AbstractController
         $model = $this->modelRepository->find($id);
 
         if (!$model) {
-            return $this->json(['message' => 'Model not found'], 404);
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -94,21 +111,28 @@ final class ModelController extends AbstractController
 
         $this->entityManager->flush();
 
-        return $this->json($model);
+        return $this->json([], Response::HTTP_NO_CONTENT);
     }
 
     #[Route("/{id}/delete", methods: ["DELETE"])]
-    public function deleteModel(int $id): JsonResponse
+    public function deleteModel(string $id): JsonResponse
     {
+        error_log($id);
         $model = $this->modelRepository->find($id);
 
         if (!$model) {
-            return $this->json(['message' => 'Model not found'], 404);
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/models/' . $model->getId() . '.py';
+
+        if (file_exists($filePath)) {
+            unlink($filePath);
         }
 
         $this->entityManager->remove($model);
         $this->entityManager->flush();
 
-        return $this->json(['message' => 'Model deleted successfully']);
+        return $this->json([], Response::HTTP_NO_CONTENT);
     }
 }
