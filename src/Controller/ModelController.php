@@ -11,16 +11,26 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Ramsey\Uuid\UuidInterface;
 
 #[Route("/model")]
 final class ModelController extends AbstractController
 {
+    private string $githubRepo;
+    private string $githubToken;
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ModelEntityRepository $modelRepository,
         private readonly SerializerInterface $serializer,
-    ) {}
+        private readonly HttpClientInterface $httpClient,
+        string $githubRepo,
+        string $githubToken,
+    ) {
+        $this->githubRepo = $githubRepo;
+        $this->githubToken = $githubToken;
+    }
 
     #[Route("s", methods: ["GET"])]
     public function getModels(): JsonResponse
@@ -63,14 +73,33 @@ final class ModelController extends AbstractController
         $this->entityManager->persist($model);
         $this->entityManager->flush();
 
-        try {
-            $file->move(
-                $this->getParameter('kernel.project_dir') . '/public/uploads/models',
-                $model->getId() . '.py',
-            );
-        } catch (FileException $e) {
-            return $this->json(['message' => 'Failed to upload file'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/models/' . $model->getId() . '.py';
+        $file->move($this->getParameter('kernel.project_dir') . '/public/uploads/models', $model->getId() . '.py');
+        $fileContent = base64_encode(file_get_contents($filePath));
+
+        $response = $this->httpClient->request(
+            'PUT',
+            $this->githubRepo . "contents/" . $model->getId() . '.py',
+            [
+                'headers' => [
+                    'Authorization' => 'token ' . $this->githubToken,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'message' => "upload({$model->getId()}): {$model->getName()}",
+                    'content' => $fileContent,
+                ],
+            ]
+        );
+
+        error_log($response->getContent());
+        if ($response->getStatusCode() !== 201) {
+            return $this->json(['message' => 'Failed to upload file to GitHub'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+
+        $model->setSha(json_decode($response->getContent(), true)['content']['sha']); 
+        unlink($filePath); // Delete local file after successful upload.
+        $this->entityManager->flush();
 
         return $this->json($model, Response::HTTP_CREATED);
     }
@@ -117,17 +146,29 @@ final class ModelController extends AbstractController
     #[Route("/{id}/delete", methods: ["DELETE"])]
     public function deleteModel(string $id): JsonResponse
     {
-        error_log($id);
         $model = $this->modelRepository->find($id);
 
         if (!$model) {
             return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/models/' . $model->getId() . '.py';
+        $response = $this->httpClient->request(
+            'DELETE',
+            $this->githubRepo . 'contents/' . $model->getId() . '.py',
+            [
+                'headers' => [
+                    'Authorization' => 'token ' . $this->githubToken,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'message' => "remove({$model->getId()}): {$model->getName()}",
+                    'sha' => $model->getSha(),
+                ],
+            ]
+        );
 
-        if (file_exists($filePath)) {
-            unlink($filePath);
+        if ($response->getStatusCode() !== 200) {
+            return $this->json(['message' => 'Failed to delete file from GitHub'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $this->entityManager->remove($model);

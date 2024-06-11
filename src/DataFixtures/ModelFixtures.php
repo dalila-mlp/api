@@ -19,6 +19,7 @@ class ModelFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
+        return;
         for ($i = 0; $i < 21; $i++) {
             $name = $this->faker->word;
 

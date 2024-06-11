@@ -40,6 +40,9 @@ class ModelEntity
     #[ORM\Column(type: "boolean", nullable: true)]
     private bool $deployed = false;
 
+    #[ORM\Column(type: "string", length: 255, nullable: true)]
+    private ?string $sha = null;
+
     #[Pure] public function __construct(
         #[ORM\Column(type: "string")]
         private string $filename,
@@ -157,5 +160,16 @@ class ModelEntity
     public function setDeployed(bool $deployed): void
     {
         $this->deployed = $deployed;
+    }
+
+    public function getSha(): ?string
+    {
+        return $this->sha;
+    }
+
+    public function setSha(?string $sha): self
+    {
+        $this->sha = $sha;
+        return $this;
     }
 }
