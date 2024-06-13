@@ -25,7 +25,7 @@ class ModelEntity
     private UuidInterface $id;
 
     #[ORM\Column(type: "string", nullable: true)]
-    private string $status = "inactive";
+    private string $status = "active";
 
     #[ORM\Column(type: "string", nullable: true)]
     private string $uploadedBy = "incomming";

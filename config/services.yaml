@@ -4,7 +4,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    github_repo: '%env(GITHUB_REPO)%'
+    github_models_repo: '%env(GITHUB_MODELS_REPO)%'
+    github_datafiles_repo: '%env(GITHUB_DATAFILES_REPO)%'
     github_token: '%env(GITHUB_TOKEN)%'
 
 services:
@@ -26,5 +27,9 @@ services:
     # please note that last definitions always *replace* previous ones
     App\Controller\ModelController:
         arguments:
-            $githubRepo: '%github_repo%'
+            $githubModelsRepo: '%github_models_repo%'
+            $githubToken: '%github_token%'
+    App\Controller\DatafileController:
+        arguments:
+            $githubDatafilesRepo: '%github_datafiles_repo%'
             $githubToken: '%github_token%'

@@ -6,35 +6,41 @@ use App\Repository\DatafileEntityRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Knp\DoctrineBehaviors\Model\Timestampable\Timestampable;
+use Ramsey\Uuid\Doctrine\UuidGenerator;
+use Ramsey\Uuid\UuidInterface;
 
 #[ORM\Entity(repositoryClass: DatafileEntityRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class DatafileEntity
 {
+    use Timestampable;
+
+    #[ORM\Id]
+    #[ORM\Column(type: "uuid", unique: true)]
+    #[ORM\GeneratedValue(strategy: "CUSTOM")]
+    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
+    private UuidInterface $id;
+
+    #[ORM\Column(type: "string", nullable: true)]
+    private string $status = "active";
+
+    #[ORM\Column(type: "string")]
+    private ?string $weightUnitSize = null;
+
+    #[ORM\Column(type: "string", length: 255, nullable: true)]
+    private ?string $sha = null;
+
     public function __construct(
-        #[ORM\Id]
-        #[ORM\GeneratedValue]
-        #[ORM\Column(type: "integer")]
-        private int $id,
         #[ORM\Column(type: "string")]
         private string $filename,
-        #[ORM\Column(type: "string")]
-        private string $name,
-        #[ORM\Column(type: "string")]
-        private string $type,
-        #[ORM\Column(type: "string")]
-        private string $status,
-        #[ORM\Column(type: "datetime")]
-        private \DateTimeInterface $uploadedAt,
-        #[ORM\Column(type: "string")]
-        private string $uploadedBy,
         #[ORM\Column(type: "float")]
         private float $weight,
-        #[ORM\Column(type: "string")]
-        private string $weightUnitSize,
     ) {
+        $this->setFilename($filename);
     }
 
-    public function getId(): int
+    public function getId(): UuidInterface
     {
         return $this->id;
     }
@@ -46,57 +52,7 @@ class DatafileEntity
 
     public function setFilename(string $filename): void
     {
-        $this->filename = $filename;
-    }
-
-    public function getName(): string
-    {
-        return $this->name;
-    }
-
-    public function setName(string $name): void
-    {
-        $this->name = $name;
-    }
-
-    public function getType(): string
-    {
-        return $this->type;
-    }
-
-    public function setType(string $type): void
-    {
-        $this->type = $type;
-    }
-
-    public function getStatus(): string
-    {
-        return $this->status;
-    }
-
-    public function setStatus(string $status): void
-    {
-        $this->status = $status;
-    }
-
-    public function getUploadedAt(): \DateTimeInterface
-    {
-        return $this->uploadedAt;
-    }
-
-    public function setUploadedAt(\DateTimeInterface $uploadedAt): void
-    {
-        $this->uploadedAt = $uploadedAt;
-    }
-
-    public function getUploadedBy(): string
-    {
-        return $this->uploadedBy;
-    }
-
-    public function setUploadedBy(string $uploadedBy): void
-    {
-        $this->uploadedBy = $uploadedBy;
+        $this->filename = str_replace(['-', '_'], ' ', str_replace(['  ', '.parquet'], '', $filename));
     }
 
     public function getWeight(): float
@@ -114,8 +70,20 @@ class DatafileEntity
         return $this->weightUnitSize;
     }
 
-    public function setWeightUnitSize(string $weightUnitSize): void
+    #[ORM\PrePersist]
+    public function setWeightUnitSize(): void
     {
-        $this->weightUnitSize = $weightUnitSize;
+        $this->weightUnitSize = ['B', 'KB', 'MB', 'GB', 'TB'][$this->getWeight() > 0 ? floor(log($this->getWeight(), 1024)) : 0];
+    }
+
+    public function getSha(): ?string
+    {
+        return $this->sha;
+    }
+
+    public function setSha(?string $sha): self
+    {
+        $this->sha = $sha;
+        return $this;
     }
 }

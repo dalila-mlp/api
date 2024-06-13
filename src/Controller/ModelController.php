@@ -14,12 +14,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Ramsey\Uuid\UuidInterface;
 
 #[Route("/model")]
 final class ModelController extends AbstractController
 {
-    private string $githubRepo;
+    private string $githubModelsRepo;
     private string $githubToken;
 
     public function __construct(
@@ -27,10 +26,10 @@ final class ModelController extends AbstractController
         private readonly ModelEntityRepository $modelRepository,
         private readonly SerializerInterface $serializer,
         private readonly HttpClientInterface $httpClient,
-        string $githubRepo,
+        string $githubModelsRepo,
         string $githubToken,
     ) {
-        $this->githubRepo = $githubRepo;
+        $this->githubModelsRepo = $githubModelsRepo;
         $this->githubToken = $githubToken;
     }
 
@@ -97,7 +96,7 @@ final class ModelController extends AbstractController
 
         $response = $this->httpClient->request(
             'PUT',
-            $this->githubRepo . "contents/" . $model->getId() . '.py',
+            $this->githubModelsRepo . "contents/" . $model->getId() . '.py',
             [
                 'headers' => [
                     'Authorization' => 'token ' . $this->githubToken,
@@ -115,7 +114,7 @@ final class ModelController extends AbstractController
             $this->entityManager->remove($model);
             $this->entityManager->flush();
 
-            return $this->json(['message' => 'Failed to upload file to GitHub!'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['message' => 'Failed to upload model to GitHub!'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $model->setSha(json_decode($response->getContent(), true)['content']['sha']); 
@@ -125,7 +124,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{id}", methods: ["GET"])]
-    public function getModel(int $id): JsonResponse
+    public function getModel(string $id): JsonResponse
     {
         $model = $this->modelRepository->find($id);
 
@@ -137,7 +136,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{id}/update", methods: ["PUT"])]
-    public function updateModel(int $id, Request $request): JsonResponse
+    public function updateModel(string $id, Request $request): JsonResponse
     {
         $model = $this->modelRepository->find($id);
 
@@ -155,12 +154,7 @@ final class ModelController extends AbstractController
         $model->setName($data['name']);
         $model->setType($data['type']);
         $model->setStatus($data['status']);
-        $model->setUploadedAt(new \DateTime($data['uploadedAt']));
-        $model->setUploadedBy($data['uploadedBy']);
         $model->setWeight($data['weight']);
-        $model->setFlops($data['flops']);
-        $model->setLastTrain(new \DateTime($data['lastTrain']));
-        $model->setDeployed($data['deployed']);
 
         $this->entityManager->flush();
 
@@ -178,7 +172,7 @@ final class ModelController extends AbstractController
 
         $response = $this->httpClient->request(
             'DELETE',
-            $this->githubRepo . 'contents/' . $model->getId() . '.py',
+            $this->githubModelsRepo . 'contents/' . $model->getId() . '.py',
             [
                 'headers' => [
                     'Authorization' => 'token ' . $this->githubToken,
@@ -192,7 +186,7 @@ final class ModelController extends AbstractController
         );
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
-            return $this->json(['message' => 'Failed to delete file from GitHub.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['message' => 'Failed to delete model from GitHub!'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $this->entityManager->remove($model);

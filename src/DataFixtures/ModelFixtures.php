@@ -20,21 +20,5 @@ class ModelFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         return;
-        for ($i = 0; $i < 21; $i++) {
-            $name = $this->faker->word;
-
-            $model = new ModelEntity(
-                filename: $name . '.py',
-                name: $name,
-                type: $this->faker->word,
-                weight: $this->faker->randomFloat(2, 0.1, 100.0),
-            );
-            $model->setStatus($this->faker->randomElement(['active', 'inactive', 'training']));
-            $model->setUploadedBy($this->faker->name);
-
-            $manager->persist($model);
-        }
-
-        $manager->flush();
     }
 }
