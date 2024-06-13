@@ -2,6 +2,8 @@
 
 namespace App\Entity;
 
+use App\Enum\ModelName;
+use App\Enum\ModelType;
 use App\Repository\ModelEntityRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -46,10 +48,10 @@ class ModelEntity
     #[Pure] public function __construct(
         #[ORM\Column(type: "string")]
         private string $filename,
-        #[ORM\Column(type: "string")]
-        private string $name,
-        #[ORM\Column(type: "string")]
-        private string $type,
+        #[ORM\Column(type: "string", enumType: ModelName::class)]
+        private ModelName $name,
+        #[ORM\Column(type: "string", enumType: ModelType::class)]
+        private ModelType $type,
         #[ORM\Column(type: "float")]
         private float $weight,
     ) {
@@ -71,22 +73,22 @@ class ModelEntity
         $this->filename = str_replace(['-', '_'], ' ', str_replace(['  ', '.py'], '', $filename));
     }
 
-    public function getName(): string
+    public function getName(): ModelName
     {
         return $this->name;
     }
 
-    public function setName(string $name): void
+    public function setName(ModelName $name): void
     {
         $this->name = $name;
     }
 
-    public function getType(): string
+    public function getType(): ModelType
     {
         return $this->type;
     }
 
-    public function setType(string $type): void
+    public function setType(ModelType $type): void
     {
         $this->type = $type;
     }

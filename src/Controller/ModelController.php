@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\ModelEntity;
+use App\Enum\ModelName;
+use App\Enum\ModelType;
 use App\Repository\ModelEntityRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,6 +34,18 @@ final class ModelController extends AbstractController
         $this->githubToken = $githubToken;
     }
 
+    #[Route("/names", methods: ["GET"])]
+    public function getModelNames(): JsonResponse
+    {
+        return $this->json(array_map(fn($name) => $name->value, ModelName::cases()), Response::HTTP_OK);
+    }
+
+    #[Route("/types", methods: ["GET"])]
+    public function getModelTypes(): JsonResponse
+    {
+        return $this->json(array_map(fn($type) => $type->value, ModelType::cases()), Response::HTTP_OK);
+    }
+
     #[Route("s", methods: ["GET"])]
     public function getModels(): JsonResponse
     {
@@ -50,23 +64,27 @@ final class ModelController extends AbstractController
         $file = $request->files->get('file');
 
         if (!$file) {
-            return $this->json(['message' => 'No file uploaded'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['message' => 'No file uploaded!'], Response::HTTP_BAD_REQUEST);
         }
 
         if ($file->getClientOriginalExtension() !== 'py') {
-            return $this->json(['message' => 'Invalid file extension. Only .py files are allowed.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['message' => 'Invalid file extension! Only .py files are allowed.'], Response::HTTP_BAD_REQUEST);
         }
 
         $data = $request->request->all();
 
         if (empty($data['name']) || empty($data['type'])) {
-            return $this->json(['message' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['message' => 'Missing required fields!'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!ModelName::tryFrom($data['name']) || !ModelType::tryFrom($data['type'])) {
+            return $this->json(['message' => 'Invalid name or type value!'], Response::HTTP_BAD_REQUEST);
         }
 
         $model = new ModelEntity(
             filename: $file->getClientOriginalName(),
-            name: $data['name'],
-            type: $data['type'],
+            name: ModelName::from($data['name']),
+            type: ModelType::from($data['type']),
             weight: $file->getSize(),
         );
 
@@ -86,19 +104,21 @@ final class ModelController extends AbstractController
                     'Content-Type' => 'application/json',
                 ],
                 'json' => [
-                    'message' => "upload({$model->getId()}): {$model->getName()}",
+                    'message' => "upload({$model->getId()}): {$model->getFilename()}",
                     'content' => $fileContent,
                 ],
             ]
         );
 
-        error_log($response->getContent());
-        if ($response->getStatusCode() !== 201) {
-            return $this->json(['message' => 'Failed to upload file to GitHub'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        unlink($filePath); // Delete local file after successful upload.
+        if ($response->getStatusCode() !== Response::HTTP_CREATED) {
+            $this->entityManager->remove($model);
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'Failed to upload file to GitHub!'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $model->setSha(json_decode($response->getContent(), true)['content']['sha']); 
-        unlink($filePath); // Delete local file after successful upload.
         $this->entityManager->flush();
 
         return $this->json($model, Response::HTTP_CREATED);
@@ -126,6 +146,10 @@ final class ModelController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
+
+        if (!ModelName::tryFrom($data['name']) || !ModelType::tryFrom($data['type'])) {
+            return $this->json(['message' => 'Invalid name or type value.'], Response::HTTP_BAD_REQUEST);
+        }
 
         $model->setFilename($data['filename']);
         $model->setName($data['name']);
@@ -161,14 +185,14 @@ final class ModelController extends AbstractController
                     'Content-Type' => 'application/json',
                 ],
                 'json' => [
-                    'message' => "remove({$model->getId()}): {$model->getName()}",
+                    'message' => "remove({$model->getId()}): {$model->getFilename()}",
                     'sha' => $model->getSha(),
                 ],
             ]
         );
 
-        if ($response->getStatusCode() !== 200) {
-            return $this->json(['message' => 'Failed to delete file from GitHub'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if ($response->getStatusCode() !== Response::HTTP_OK) {
+            return $this->json(['message' => 'Failed to delete file from GitHub.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $this->entityManager->remove($model);
