@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\ModelEntity;
+use App\Entity\TransactionEntity;
 use App\Enum\ModelName;
 use App\Enum\ModelType;
+use App\Enum\TransactionAction;
 use App\Repository\ModelEntityRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -49,7 +51,7 @@ final class ModelController extends AbstractController
     public function getModels(): JsonResponse
     {
         return new JsonResponse(
-            $this->serializer->serialize($this->modelRepository->findAll(), 'json'),
+            $this->serializer->serialize($this->modelRepository->findAll(), 'json', ['groups' => ['model']]),
             Response::HTTP_OK,
             ['Content-Type' => 'application/json'],
             true,
@@ -87,7 +89,14 @@ final class ModelController extends AbstractController
             weight: $file->getSize(),
         );
 
+        $transaction = new TransactionEntity(
+            action: TransactionAction::CREATION,
+            active: true,
+            model: $model,
+        );
+
         $this->entityManager->persist($model);
+        $this->entityManager->persist($transaction);
         $this->entityManager->flush();
 
         $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/models/' . $model->getId() . '.py';
@@ -132,7 +141,12 @@ final class ModelController extends AbstractController
             return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
-        return $this->json($model, Response::HTTP_OK);
+        return $this->json(
+            $model,
+            Response::HTTP_OK,
+            [],
+            ['groups' => ['model']],
+        );
     }
 
     #[Route("/{id}/update", methods: ["PUT"])]
@@ -193,5 +207,49 @@ final class ModelController extends AbstractController
         $this->entityManager->flush();
 
         return $this->json([], Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route("/{id}/transactions", methods: ["GET"])]
+    public function getModelTransactions(string $id): JsonResponse
+    {
+        $model = $this->modelRepository->find($id);
+
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json(
+            array_map(
+                function ($transaction) {
+                    return [
+                        'id' => $transaction->getId()->toString(),
+                        'action' => $transaction->getAction()->value,
+                        'active' => $transaction->getActive(),
+                    ];
+                },
+                $model->getTransactions()->toArray(),
+            ),
+            Response::HTTP_OK,);
+    }
+
+    #[Route("/{id}/{transaction}/metrics", methods: ["GET"])]
+    public function getModelMetrics(string $id, string $transaction): JsonResponse
+    {
+        $model = $this->modelRepository->find($id);
+
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json(
+            [
+                "executionTime" => "1.38 hours",
+                "accuracy" => "89.56 %",
+                "precision" => "91.47 %",
+                "recall" => "87.12 %",
+                "f1Score" => "88.02 %"
+            ],
+            Response::HTTP_OK,
+        );
     }
 }
