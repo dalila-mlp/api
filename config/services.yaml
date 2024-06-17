@@ -33,3 +33,16 @@ services:
         arguments:
             $githubDatafilesRepo: '%github_datafiles_repo%'
             $githubToken: '%github_token%'
+
+    App\Decorator\JwtDecorator:
+        decorates: 'api_platform.openapi.factory'
+        arguments: [ '@.inner' ]
+
+    app.listener.authentication_success_response:
+        class: App\Event\Listener\AuthenticationSuccessListener
+        tags:
+            - {
+                name: kernel.event_listener,
+                event: lexik_jwt_authentication.on_authentication_success,
+                method: onAuthenticationSuccessResponse
+            }
