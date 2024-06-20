@@ -13,7 +13,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserEntityRepository::class)]
 #[ORM\Table(name: "`user`")]
-#[UniqueEntity(fields: ['email'], message: 'user.unique.email')]
+#[UniqueEntity(fields: ['email', 'username'], message: 'The email or username is already in use.')]
 class UserEntity implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
@@ -125,7 +125,7 @@ class UserEntity implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getUserIdentifier(): string
     {
-        return $this->email;
+        return $this->username;
     }
 
     public function eraseCredentials(): void

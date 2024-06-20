@@ -7,29 +7,24 @@ security:
     app_user_provider:
       entity:
         class: App\Entity\UserEntity
-        property: email
+        property: username
   firewalls:
-    dev:
-      pattern: ^/(_(profiler|wdt)|css|images|js)/
-      security: false
     login:
       pattern: ^/authentication_token
       stateless: true
       json_login:
         check_path: /authentication_token
-        username_path: email
+        username_path: username
         password_path: password
         success_handler: lexik_jwt_authentication.handler.authentication_success
         failure_handler: lexik_jwt_authentication.handler.authentication_failure
     api:
+      pattern: ^/
+      stateless: true
       entry_point: jwt
       jwt: ~
-      logout:
-        path: token_invalidate
-      pattern: ^/
       refresh_jwt:
-        check_path: refresh_token
-      stateless: true
+          check_path: /refresh_token
 
   # Easy way to control access for large sections of your site
   # Note: Only the *first* access control that matches will be used
