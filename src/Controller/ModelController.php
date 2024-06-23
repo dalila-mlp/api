@@ -252,4 +252,23 @@ final class ModelController extends AbstractController
             Response::HTTP_OK,
         );
     }
+
+    #[Route("/info", methods: ["POST"])]
+    public function modelInfo(Request $request): JsonResponse
+    {
+        $response = $this->httpClient->request(
+            "POST",
+            "http://dalila-llm_api-service:18950/model_info",
+            [
+                "headers" => ["Content-Type" => "application/json"],
+                "json" => [
+                    "content" => file_get_contents($request->files->get('file')->getPathname()),
+                    "model_names" => array_map(fn($type) => $type->value, ModelName::cases()),
+                    "model_types" => array_map(fn($name) => $name->value, ModelType::cases()),
+                ],
+            ],
+        );
+
+        return $this->json(json_decode($response->getContent(), true), Response::HTTP_OK);
+    }
 }
