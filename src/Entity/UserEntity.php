@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserEntityRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\Doctrine\UuidGenerator;
 use Ramsey\Uuid\UuidInterface;
@@ -43,7 +45,7 @@ class UserEntity implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function __construct(
         #[ORM\Column(type: 'string', length: 255, unique: true)]
-        #[Groups(['user'])]
+        #[Groups(['user', 'model.owner'])]
         private ?string $email,
         #[ORM\Column(type: 'string', length: 255, nullable: false)]
         #[Groups(['user'])]

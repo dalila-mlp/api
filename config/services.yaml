@@ -48,3 +48,27 @@ services:
                 event: lexik_jwt_authentication.on_authentication_success,
                 method: onAuthenticationSuccessResponse
             }
+
+    gedmo.metadata_driver:
+        class: Doctrine\Persistence\Mapping\Driver\MappingDriverChain
+        arguments: [[]]
+        tags:
+            - { name: doctrine.orm.metadata_driver, driver: 'annotation', prefix: 'Gedmo\Mapping\Annotation', entity_manager: 'default' }
+        calls:
+            - method: addDriver
+              arguments:
+                  - '@annotation_reader'
+                  - 'Gedmo\Mapping\Annotation'
+
+    gedmo.listener.timestampable:
+        class: Gedmo\Timestampable\TimestampableListener
+        tags:
+            - { name: doctrine.event_subscriber, connection: default }
+    
+
+    gedmo.listener.blameable:
+        class: Gedmo\Blameable\BlameableListener
+        tags:
+            - { name: doctrine.event_subscriber, connection: default }
+        arguments:
+            - '@security.token_storage'

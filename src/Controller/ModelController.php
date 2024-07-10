@@ -158,7 +158,7 @@ final class ModelController extends AbstractController
             $model,
             Response::HTTP_OK,
             [],
-            ['groups' => ['model']],
+            ['groups' => ['model', 'model.owner']],
         );
     }
 
@@ -364,6 +364,8 @@ final class ModelController extends AbstractController
             return $this->json(['message' => 'Training went badly...'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
+        $model->setLastTrain(new \DateTime('now'));
+
         $transaction = new TransactionEntity(
             action: TransactionAction::TRAIN,
             active: true,
@@ -415,6 +417,7 @@ final class ModelController extends AbstractController
 
         array_walk($metrics, fn($metric) => $this->entityManager->persist($metric));
         array_walk($plots, fn($plot) => $this->entityManager->persist($plot));
+        $this->entityManager->persist($model);
         $this->entityManager->persist($transaction);
         $this->entityManager->flush();
 

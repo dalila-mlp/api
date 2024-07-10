@@ -38,10 +38,6 @@ class ModelEntity
     #[Groups(['model'])]
     private string $status = "active";
 
-    #[ORM\Column(type: "string", nullable: true)]
-    #[Groups(['model'])]
-    private string $uploadedBy = "incomming";
-
     #[ORM\Column(type: "string")]
     #[Groups(['model'])]
     private ?string $weightUnitSize = null;
@@ -61,6 +57,12 @@ class ModelEntity
     #[ORM\Column(type: "string", length: 255, nullable: true)]
     #[Groups(['model'])]
     private ?string $sha = null;
+
+    #[Gedmo\Blameable(on: "create")]
+    #[ORM\ManyToOne(inversedBy: 'models')]
+    #[ORM\JoinColumn(nullable: false)]
+    #[Groups(['model', 'model.owner'])]
+    private ?UserEntity $owner;
 
     #[Pure] public function __construct(
         #[ORM\Column(type: "string")]
@@ -147,18 +149,6 @@ class ModelEntity
     public function setStatus(string $status): static
     {
         $this->status = $status;
-
-        return $this;
-    }
-
-    public function getUploadedBy(): string
-    {
-        return $this->uploadedBy;
-    }
-
-    public function setUploadedBy(string $uploadedBy): static
-    {
-        $this->uploadedBy = $uploadedBy;
 
         return $this;
     }
@@ -318,6 +308,18 @@ class ModelEntity
                 $plot->setModel(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getOwner(): ?UserEntity
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?UserEntity $owner): static
+    {
+        $this->owner = $owner;
 
         return $this;
     }
