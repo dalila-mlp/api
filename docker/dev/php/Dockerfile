@@ -34,6 +34,10 @@ COPY ./docker/dev/php/php.ini /etc/php/8.3/fpm/conf.d/50-setting.ini
 COPY ./docker/dev/php/pool.conf /etc/php/8.3/fpm/pool.d/www.conf
 COPY ./docker/dev/php/symfony.conf /etc/nginx/symfony.conf
 
+# PHP configuration for file upload sizes
+RUN echo "upload_max_filesize = 50M" >> /usr/local/etc/php/conf.d/50-setting.ini
+RUN echo "post_max_size = 50M" >> /usr/local/etc/php/conf.d/50-setting.ini
+
 # Installation of composer and PHP dependencies.
 COPY composer.json .
 RUN curl -sS https://getcomposer.org/installer -o composer-setup.php && \

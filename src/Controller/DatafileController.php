@@ -52,8 +52,8 @@ final class DatafileController extends AbstractController
             return $this->json(['message' => 'No file uploaded!'], Response::HTTP_BAD_REQUEST);
         }
 
-        if ($file->getClientOriginalExtension() !== 'parquet') {
-            return $this->json(['message' => 'Invalid file extension! Only .parquet files are allowed.'], Response::HTTP_BAD_REQUEST);
+        if ($file->getClientOriginalExtension() !== 'csv') {
+            return $this->json(['message' => 'Invalid file extension! Only .csv files are allowed.'], Response::HTTP_BAD_REQUEST);
         }
 
         $data = $request->request->all();
@@ -66,13 +66,13 @@ final class DatafileController extends AbstractController
         $this->entityManager->persist($datafile);
         $this->entityManager->flush();
 
-        $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/datafiles/' . $datafile->getId() . '.parquet';
-        $file->move($this->getParameter('kernel.project_dir') . '/public/uploads/datafiles', $datafile->getId() . '.parquet');
+        $filePath = $this->getParameter('kernel.project_dir') . '/public/uploads/datafiles/' . $datafile->getId() . '.csv';
+        $file->move($this->getParameter('kernel.project_dir') . '/public/uploads/datafiles', $datafile->getId() . '.csv');
         $fileContent = base64_encode(file_get_contents($filePath));
 
         $response = $this->httpClient->request(
             'PUT',
-            $this->githubDatafilesRepo . "contents/" . $datafile->getId() . '.parquet',
+            $this->githubDatafilesRepo . "contents/" . $datafile->getId() . '.csv',
             [
                 'headers' => [
                     'Authorization' => 'token ' . $this->githubToken,
@@ -141,7 +141,7 @@ final class DatafileController extends AbstractController
 
         $response = $this->httpClient->request(
             'DELETE',
-            $this->githubDatafilesRepo . 'contents/' . $datafile->getId() . '.parquet',
+            $this->githubDatafilesRepo . 'contents/' . $datafile->getId() . '.csv',
             [
                 'headers' => [
                     'Authorization' => 'token ' . $this->githubToken,

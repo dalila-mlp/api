@@ -78,6 +78,12 @@ class ModelEntity
         #[ORM\OneToMany(targetEntity: TransactionEntity::class, mappedBy: 'model', orphanRemoval: true)]
         #[Groups(['model'])]
         private Collection $transactions = new ArrayCollection,
+        #[ORM\OneToMany(targetEntity: MetricEntity::class, mappedBy: 'model', orphanRemoval: true)]
+        #[Groups(['model'])]
+        private Collection $metrics = new ArrayCollection,
+        #[ORM\OneToMany(targetEntity: PlotEntity::class, mappedBy: 'model', orphanRemoval: true)]
+        #[Groups(['model'])]
+        private Collection $plots = new ArrayCollection,
     ) {
         $this->setFilename($filename);
     }
@@ -250,6 +256,66 @@ class ModelEntity
         if ($this->transactions->removeElement($transaction)) {
             if ($transaction->getModel() === $this) {
                 $transaction->setModel(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, MetricEntity>
+     */
+    public function getMetrics(): Collection
+    {
+        return $this->metrics;
+    }
+
+    public function addMetric(MetricEntity $metric): static
+    {
+        if (!$this->metrics->contains($metric)) {
+            $this->metrics->add($metric);
+            $metric->setModel($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMetric(MetricEntity $metric): static
+    {
+        if ($this->metrics->removeElement($metric)) {
+            // set the owning side to null (unless already changed)
+            if ($metric->getModel() === $this) {
+                $metric->setModel(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PlotEntity>
+     */
+    public function getPlots(): Collection
+    {
+        return $this->plots;
+    }
+
+    public function addPlot(PlotEntity $plot): static
+    {
+        if (!$this->plots->contains($plot)) {
+            $this->plots->add($plot);
+            $plot->setModel($this);
+        }
+
+        return $this;
+    }
+
+    public function removePlot(PlotEntity $plot): static
+    {
+        if ($this->plots->removeElement($plot)) {
+            // set the owning side to null (unless already changed)
+            if ($plot->getModel() === $this) {
+                $plot->setModel(null);
             }
         }
 

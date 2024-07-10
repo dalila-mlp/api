@@ -77,7 +77,7 @@ class DatafileEntity
 
     public function setFilename(string $filename): void
     {
-        $this->filename = str_replace(['-', '_'], ' ', str_replace(['  ', '.parquet'], '', $filename));
+        $this->filename = str_replace(['-', '_'], ' ', str_replace(['  ', '.csv'], '', $filename));
     }
 
     public function getWeight(): float

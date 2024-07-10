@@ -3,11 +3,16 @@
 namespace App\Controller;
 
 use App\Entity\ModelEntity;
+use App\Entity\MetricEntity;
+use App\Entity\PlotEntity;
 use App\Entity\TransactionEntity;
 use App\Enum\ModelName;
 use App\Enum\ModelType;
 use App\Enum\TransactionAction;
+use App\Repository\DatafileEntityRepository;
 use App\Repository\ModelEntityRepository;
+use App\Repository\TransactionEntityRepository;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,22 +21,30 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Psr\Log\LoggerInterface;
+use Ramsey\Uuid\Uuid;
 
 #[Route("/model")]
 final class ModelController extends AbstractController
 {
     private string $githubModelsRepo;
+    private string $githubPlotsRepo;
     private string $githubToken;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly DatafileEntityRepository $datafileRepository,
         private readonly ModelEntityRepository $modelRepository,
+        private readonly TransactionEntityRepository $transactionRepository,
         private readonly SerializerInterface $serializer,
         private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger,
         string $githubModelsRepo,
+        string $githubPlotsRepo,
         string $githubToken,
     ) {
         $this->githubModelsRepo = $githubModelsRepo;
+        $this->githubPlotsRepo = $githubPlotsRepo;
         $this->githubToken = $githubToken;
     }
 
@@ -229,28 +242,72 @@ final class ModelController extends AbstractController
                 },
                 $model->getTransactions()->toArray(),
             ),
-            Response::HTTP_OK,);
+            Response::HTTP_OK,
+        );
     }
 
-    #[Route("/{id}/{transaction}/metrics", methods: ["GET"])]
-    public function getModelMetrics(string $id, string $transaction): JsonResponse
+    #[Route("/{transactionId}/metrics", methods: ["GET"])]
+    public function getModelMetrics(string $transactionId): JsonResponse
     {
-        $model = $this->modelRepository->find($id);
-
-        if (!$model) {
-            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        $transaction = $this->transactionRepository->find($transactionId);
+        if (!$transaction) {
+            return $this->json(['message' => 'Transaction not found'], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json(
-            [
-                "executionTime" => "1.38 hours",
-                "accuracy" => "89.56 %",
-                "precision" => "91.47 %",
-                "recall" => "87.12 %",
-                "f1Score" => "88.02 %"
-            ],
+            array_reduce(
+                $transaction->getMetrics()->toArray(),
+                function($carry, $metric) {
+                    $name = $metric->getName();
+                    $value = $metric->getValue();
+    
+                    if ($name === 'executionTime') {
+                        $carry[$name] = sprintf('%.2f hours', $value);
+                    } else {
+                        $carry[$name] = sprintf('%.2f %%', $value);
+                    }
+    
+                    return $carry;
+                },
+                [],
+            ),
             Response::HTTP_OK,
         );
+    }
+
+    #[Route("/{transactionId}/plots", methods: ["GET"])]
+    public function getModelPlots(string $transactionId): JsonResponse
+    {
+        $transaction = $this->transactionRepository->find($transactionId);
+        if (!$transaction) {
+            return $this->json(['message' => 'Transaction not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $plots = $transaction->getPlots()->toArray();
+
+        $imageUrls = [];
+        foreach ($plots as $plot) {
+            $response = $this->httpClient->request(
+                'GET',
+                $this->githubPlotsRepo . "contents/" . $plot->getId() . ".png",
+                [
+                    'headers' => [
+                        'Authorization' => 'token ' . $this->githubToken,
+                        'Content-Type' => 'application/json',
+                    ],
+                ],
+            );
+
+            if ($response->getStatusCode() === 200) {
+                $imageData = $response->toArray();
+                $imageUrls[] = $imageData['download_url'];
+            } else {
+                // Gérer l'erreur pour ce plot spécifique, par exemple en ajoutant un message d'erreur dans la liste
+                $imageUrls[] = ['error' => 'Image not found for plot ID ' . $plot->getId()];
+            }
+        }
+
+        return $this->json($imageUrls, Response::HTTP_OK);
     }
 
     #[Route("/info", methods: ["POST"])]
@@ -270,5 +327,97 @@ final class ModelController extends AbstractController
         );
 
         return $this->json(json_decode($response->getContent(), true), Response::HTTP_OK);
+    }
+
+    #[Route("/train", methods: ["POST"])]
+    public function train(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $model = $this->modelRepository->find($data["model_id"]);
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $datafile = $this->datafileRepository->find($data["datafile_id"]);
+        if (!$datafile) {
+            return $this->json(['message' => 'Datafile not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $response = $this->httpClient->request(
+            "POST",
+            "http://dalila-models_api-service:14506/train",
+            [
+                "headers" => ["Content-Type" => "application/json"],
+                "json" => [
+                    "model_id" => $data["model_id"],
+                    "datafile_id" => $data["datafile_id"],
+                    "target_column" => $data["target_column"],
+                    "features" => $data["features"],
+                    "test_size" => $data["test_size"],
+                ],
+            ],
+        );
+        $responseData = json_decode($response->getContent(), true);
+
+        if (!$responseData['metrics'] || !$responseData['plot_id_list']) {
+            return $this->json(['message' => 'Training went badly...'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $transaction = new TransactionEntity(
+            action: TransactionAction::TRAIN,
+            active: true,
+            model: $model,
+        );
+
+        $filteredMetricsData = array_filter(
+            $responseData['metrics'],
+            fn($value, $name) => $name !== 'confusion_matrix',
+            ARRAY_FILTER_USE_BOTH,
+        );
+
+        $metrics = (new ArrayCollection(
+            array_map(
+                fn($name, $value) => (
+                    (new MetricEntity())
+                        ->setName($name)
+                        ->setValue($value)
+                        ->setModel($model)
+                        ->setTransaction($transaction)
+                ),
+                array_keys($filteredMetricsData),
+                $filteredMetricsData,
+            ),
+        ))->toArray();
+
+        $plots = (new ArrayCollection(
+            array_map(
+                fn($id) => (
+                    (new PlotEntity())
+                        ->setId(Uuid::fromString($id))
+                        ->setModel($model)
+                        ->setTransaction($transaction)
+                ),
+                $responseData['plot_id_list'],
+            )
+        ))->toArray();
+
+        // Update all previous transactions to inactive using QueryBuilder
+        $this->entityManager->createQueryBuilder()
+            ->update(TransactionEntity::class, 't')
+            ->set('t.active', ':inactive')
+            ->where('t.model = :model')
+            ->setParameter('inactive', '0')
+            ->setParameter('model', $model)
+            ->getQuery()
+            ->execute()
+        ;
+
+        array_walk($metrics, fn($metric) => $this->entityManager->persist($metric));
+        array_walk($plots, fn($plot) => $this->entityManager->persist($plot));
+        $this->entityManager->persist($transaction);
+        $this->entityManager->flush();
+
+        return $this->json([], Response::HTTP_NO_CONTENT);
     }
 }

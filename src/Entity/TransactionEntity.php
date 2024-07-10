@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Enum\TransactionAction;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Ramsey\Uuid\Doctrine\UuidGenerator;
@@ -29,18 +31,24 @@ class TransactionEntity
     #[Groups(["transaction"])]
     protected ?\DateTimeImmutable $updatedAt = null;
 
-    #[Pure] public function __construct(
+    #[Pure]
+    public function __construct(
         #[ORM\Column(type: "string", enumType: TransactionAction::class)]
         #[Groups(['transaction'])]
-        private TransactionAction $action,
-        #[ORM\Column(type: "string", nullable: true)]
+        private TransactionAction $action, #[ORM\Column(type: "string", nullable: true)]
         #[Groups(['transaction'])]
-        private bool $active = False,
-        #[ORM\ManyToOne(inversedBy: 'transactions')]
+        private bool $active = False, #[ORM\ManyToOne(inversedBy: 'transactions')]
         #[ORM\JoinColumn(nullable: false)]
         #[Groups(['transaction'])]
         private ?ModelEntity $model = null,
-    ) {}
+        #[ORM\OneToMany(targetEntity: MetricEntity::class, mappedBy: 'transaction', orphanRemoval: true)]
+        #[Groups(['transaction'])]
+        private Collection $metrics = new ArrayCollection,
+        #[ORM\OneToMany(targetEntity: PlotEntity::class, mappedBy: 'transaction', orphanRemoval: true)]
+        #[Groups(['transaction'])]
+        private Collection $plots = new ArrayCollection,
+    ) {
+    }
 
     public function getId(): UuidInterface
     {
@@ -89,6 +97,66 @@ class TransactionEntity
     public function setModel(?ModelEntity $model): static
     {
         $this->model = $model;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, MetricEntity>
+     */
+    public function getMetrics(): Collection
+    {
+        return $this->metrics;
+    }
+
+    public function addMetric(MetricEntity $metric): static
+    {
+        if (!$this->metrics->contains($metric)) {
+            $this->metrics->add($metric);
+            $metric->setTransaction($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMetric(MetricEntity $metric): static
+    {
+        if ($this->metrics->removeElement($metric)) {
+            // set the owning side to null (unless already changed)
+            if ($metric->getTransaction() === $this) {
+                $metric->setTransaction(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PlotEntity>
+     */
+    public function getPlots(): Collection
+    {
+        return $this->plots;
+    }
+
+    public function addPlot(PlotEntity $plot): static
+    {
+        if (!$this->plots->contains($plot)) {
+            $this->plots->add($plot);
+            $plot->setTransaction($this);
+        }
+
+        return $this;
+    }
+
+    public function removePlot(PlotEntity $plot): static
+    {
+        if ($this->plots->removeElement($plot)) {
+            // set the owning side to null (unless already changed)
+            if ($plot->getTransaction() === $this) {
+                $plot->setTransaction(null);
+            }
+        }
 
         return $this;
     }

@@ -6,7 +6,7 @@
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
 /public/uploads/**/*.py
-/public/uploads/**/*.parquet
+/public/uploads/**/*.csv
 !/public/uploads/**/.gitkeep
 /var/
 /vendor/
