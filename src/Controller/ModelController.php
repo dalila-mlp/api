@@ -358,28 +358,33 @@ final class ModelController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
-        $model = $this->modelRepository->find($data["model_id"]);
+        $model = $this->modelRepository->find($data['model_id']);
         if (!$model) {
             return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $datafile = $this->datafileRepository->find($data["datafile_id"]);
+        $datafile = $this->datafileRepository->find($data['datafile_id']);
         if (!$datafile) {
             return $this->json(['message' => 'Datafile not found'], Response::HTTP_NOT_FOUND);
         }
 
+        if (!$data['parameters']) {
+            return $this->json(['message' => 'Parameters not found'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
         $response = $this->httpClient->request(
-            "POST",
-            "http://dalila-models_api-service:14506/train",
+            'POST',
+            'http://dalila-models_api-service:14506/train',
             [
-                "headers" => ["Content-Type" => "application/json"],
-                "json" => [
-                    "model_id" => $data["model_id"],
-                    "datafile_id" => $data["datafile_id"],
-                    "target_column" => $data["target_column"],
-                    "features" => $data["features"],
-                    "test_size" => $data["test_size"],
-                    "model_type" => $model->getType()->value,
+                'headers' => ['Content-Type' => 'application/json'],
+                'json' => [
+                    'model_id' => $data['model_id'],
+                    'datafile_id' => $data['datafile_id'],
+                    'target_column' => $data['target_column'],
+                    'features' => $data['features'],
+                    'test_size' => $data['test_size'],
+                    'model_type' => $model->getType()->value,
+                    'parameters' => $data['parameters'],
                 ],
             ],
         );

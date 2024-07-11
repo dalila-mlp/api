@@ -76,11 +76,11 @@ class ModelParameters
             case ModelName::BAYES_RIDGE:
                 return [
                     new ModelParameter('max_iter', 'int', 300),
-                    new ModelParameter('tol', 'float', 1e-03),
-                    new ModelParameter('alpha_1', 'float', 1e-06),
-                    new ModelParameter('alpha_2', 'float', 1e-06),
-                    new ModelParameter('lambda_1', 'float', 1e-06),
-                    new ModelParameter('lambda_2', 'float', 1e-06),
+                    new ModelParameter('tol', 'float', 1e-03, 'tol >= 0'),
+                    new ModelParameter('alpha_1', 'float', 1e-06, 'alpha_1 >= 0'),
+                    new ModelParameter('alpha_2', 'float', 1e-06, 'alpha_2 >= 0'),
+                    new ModelParameter('lambda_1', 'float', 1e-06, 'lambda_1 >= 0'),
+                    new ModelParameter('lambda_2', 'float', 1e-06, 'lambda_2 >= 0'),
                     new ModelParameter('alpha_init', 'float', null),
                     new ModelParameter('lambda_init', 'float', null),
                     new ModelParameter('verbose', 'bool', false),
@@ -90,14 +90,14 @@ class ModelParameters
                     new ModelParameter('max_depth', 'int', null),
                     new ModelParameter('min_samples_split', 'int', 2),
                     new ModelParameter('min_samples_leaf', 'int', 1),
-                    new ModelParameter('max_features', 'int|string', null, '{"sqrt", "log2"}'),
+                    new ModelParameter('max_features', 'int', null, ''),
                 ];
             case ModelName::EN:
                 return [
                     new ModelParameter('alpha', 'float', 1.0),
                     new ModelParameter('l1_ratio', 'float', 0.5, '0 <= l1_ratio <= 1'),
                     new ModelParameter('max_iter', 'int', 1000),
-                    new ModelParameter('tol', 'float', 1e-4),
+                    new ModelParameter('tol', 'float', 1e-04),
                 ];
             case ModelName::XGBOOST:
                 return [
@@ -110,7 +110,7 @@ class ModelParameters
                 return [
                     new ModelParameter('alpha', 'float', 1.0, '[0, inf)'),
                     new ModelParameter('max_iter', 'int', 1000),
-                    new ModelParameter('tol', 'float', 1e-4),
+                    new ModelParameter('tol', 'float', 1e-04),
                 ];
             case ModelName::LINEAR_REGRESSION:
                 return [
@@ -118,7 +118,7 @@ class ModelParameters
                 ];
             case ModelName::POLYNOMIAL_REGRESSION:
                 return [
-                    new ModelParameter('degree', 'int|tuple', 2),
+                    new ModelParameter('degree', 'int', 2),
                     new ModelParameter('include_bias', 'bool', true),
                     new ModelParameter('order', 'string', 'C', '{"C", "F"}'),
                 ];
@@ -127,11 +127,11 @@ class ModelParameters
                     new ModelParameter('n_estimators', 'int', 100),
                     new ModelParameter('criterion', 'string', 'squared_error', '{"squared_error", "absolute_error", "friedman_mse", "poisson"}'),
                     new ModelParameter('max_depth', 'int', null),
-                    new ModelParameter('max_features', 'int|string', 1.0, '{"sqrt", "log2", null}'),
+                    new ModelParameter('max_features', 'int', 1.0, ''),
                 ];
             case ModelName::RIDGE:
                 return [
-                    new ModelParameter('alpha', 'float|ndarray', 1.0, '[0, inf)'),
+                    new ModelParameter('alpha', 'float', 1.0, '[0, inf)'),
                     new ModelParameter('max_iter', 'int', null),
                     new ModelParameter('tol', 'float', 1e-04),
                     new ModelParameter('solver', 'string', 'auto', '{"auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga", "lbfgs"}'),
@@ -140,7 +140,7 @@ class ModelParameters
                 return [
                     new ModelParameter('kernel', 'string', 'rbf', '{"linear", "poly", "rbf", "sigmoid", "precomputed"}'),
                     new ModelParameter('degree', 'int', 3),
-                    new ModelParameter('gamma', 'string|float', 'scale', '{"scale", "auto"}'),
+                    new ModelParameter('gamma', 'float', 'scale', ''),
                     new ModelParameter('epsilon', 'float', 0.1),
                 ];
         }
