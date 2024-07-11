@@ -9,6 +9,7 @@ enum ModelName: string
     case EN = 'Elastic Net';
     case XGBOOST = 'Extreme Gradient Boosting';
     case LR = 'Logistic Regression';
+    case LINEAR = 'Linear Regression';
     case RR = 'Ridge Regression';
     case LASSO = 'Lasso Regression';
     case PR = 'Polynomial Regression';
@@ -28,6 +29,7 @@ enum ModelName: string
             self::EN,
             self::XGBOOST,
             self::LR,
+            self::LINEAR,
             self::RR,
             self::LASSO,
             self::PR,

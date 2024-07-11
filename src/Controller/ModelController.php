@@ -12,6 +12,7 @@ use App\Enum\TransactionAction;
 use App\Repository\DatafileEntityRepository;
 use App\Repository\ModelEntityRepository;
 use App\Repository\TransactionEntityRepository;
+use App\Service\ModelParameters;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Writer;
@@ -51,19 +52,19 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/names", methods: ["GET"])]
-    public function getModelNames(): JsonResponse
+    public function getNames(): JsonResponse
     {
         return $this->json(array_map(fn($name) => $name->value, ModelName::cases()), Response::HTTP_OK);
     }
 
     #[Route("/types", methods: ["GET"])]
-    public function getModelTypes(): JsonResponse
+    public function getTypes(): JsonResponse
     {
         return $this->json(array_map(fn($type) => $type->value, ModelType::cases()), Response::HTTP_OK);
     }
 
     #[Route("s", methods: ["GET"])]
-    public function getModels(): JsonResponse
+    public function gets(): JsonResponse
     {
         return new JsonResponse(
             $this->serializer->serialize($this->modelRepository->findAll(), 'json', ['groups' => ['model']]),
@@ -75,7 +76,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/create", methods: ["POST"])]
-    public function createModel(Request $request): JsonResponse
+    public function create(Request $request): JsonResponse
     {
         $file = $request->files->get('file');
 
@@ -149,7 +150,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{id}", methods: ["GET"])]
-    public function getModel(string $id): JsonResponse
+    public function get(string $id): JsonResponse
     {
         $model = $this->modelRepository->find($id);
 
@@ -166,7 +167,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{id}/update", methods: ["PUT"])]
-    public function updateModel(string $id, Request $request): JsonResponse
+    public function update(string $id, Request $request): JsonResponse
     {
         $model = $this->modelRepository->find($id);
 
@@ -226,10 +227,9 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{id}/transactions", methods: ["GET"])]
-    public function getModelTransactions(string $id): JsonResponse
+    public function transactions(string $id): JsonResponse
     {
         $model = $this->modelRepository->find($id);
-
         if (!$model) {
             return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
@@ -257,7 +257,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{transactionId}/metrics", methods: ["GET"])]
-    public function getModelMetrics(string $transactionId): JsonResponse
+    public function metrics(string $transactionId): JsonResponse
     {
         $transaction = $this->transactionRepository->find($transactionId);
         if (!$transaction) {
@@ -286,7 +286,7 @@ final class ModelController extends AbstractController
     }
 
     #[Route("/{transactionId}/plots", methods: ["GET"])]
-    public function getModelPlots(string $transactionId): JsonResponse
+    public function plots(string $transactionId): JsonResponse
     {
         $transaction = $this->transactionRepository->find($transactionId);
         if (!$transaction) {
@@ -320,8 +320,22 @@ final class ModelController extends AbstractController
         return $this->json($imageUrls, Response::HTTP_OK);
     }
 
+    #[Route("/{id}/parameters", methods: ["GET"])]
+    public function parameters(string $id): JsonResponse
+    {
+        $model = $this->modelRepository->find($id);
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json(
+            ModelParameters::get($model->getType(), $model->getName()),
+            Response::HTTP_OK,
+        );
+    }
+
     #[Route("/info", methods: ["POST"])]
-    public function modelInfo(Request $request): JsonResponse
+    public function info(Request $request): JsonResponse
     {
         $response = $this->httpClient->request(
             "POST",
@@ -365,6 +379,7 @@ final class ModelController extends AbstractController
                     "target_column" => $data["target_column"],
                     "features" => $data["features"],
                     "test_size" => $data["test_size"],
+                    "model_type" => $model->getType()->value,
                 ],
             ],
         );
@@ -440,7 +455,7 @@ final class ModelController extends AbstractController
         $this->entityManager->persist($transaction);
         $this->entityManager->flush();
 
-        return $this->json(['model_id' => $model->getId()], Response::HTTP_OK);
+        return $this->json(['model_id' => $model->getId(), 'debug' => $model->getType()->value], Response::HTTP_OK);
     }
 
     #[Route("/predict", methods: ["POST"])]
