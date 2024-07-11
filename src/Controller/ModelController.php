@@ -14,10 +14,12 @@ use App\Repository\ModelEntityRepository;
 use App\Repository\TransactionEntityRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Csv\Writer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -103,6 +105,7 @@ final class ModelController extends AbstractController
         );
 
         $transaction = new TransactionEntity(
+            id: Uuid::uuid4(),
             action: TransactionAction::CREATION,
             active: true,
             model: $model,
@@ -231,6 +234,12 @@ final class ModelController extends AbstractController
             return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
         }
 
+        $transactions = $model->getTransactions()->toArray();
+        usort(
+            $transactions,
+            fn ($a, $b) => $b->getCreatedAt() <=> $a->getCreatedAt(),
+        );
+
         return $this->json(
             array_map(
                 function ($transaction) {
@@ -238,9 +247,10 @@ final class ModelController extends AbstractController
                         'id' => $transaction->getId()->toString(),
                         'action' => $transaction->getAction()->value,
                         'active' => $transaction->getActive(),
+                        'deployed' => $transaction->isDeployed(),
                     ];
                 },
-                $model->getTransactions()->toArray(),
+                $transactions,
             ),
             Response::HTTP_OK,
         );
@@ -360,13 +370,22 @@ final class ModelController extends AbstractController
         );
         $responseData = json_decode($response->getContent(), true);
 
-        if (!$responseData['metrics'] || !$responseData['plot_id_list']) {
+        if (
+            !$responseData['metrics'] ||
+            !$responseData['plot_id_list'] ||
+            !$responseData['model_save_id'] ||
+            !$responseData['model_type']
+        ) {
             return $this->json(['message' => 'Training went badly...'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
-        $model->setLastTrain(new \DateTime('now'));
+        $model
+            ->setLastTrain(new \DateTime('now'))
+            ->setLibType($responseData['model_type'])
+        ;
 
         $transaction = new TransactionEntity(
+            id: Uuid::fromString($responseData['model_save_id']),
             action: TransactionAction::TRAIN,
             active: true,
             model: $model,
@@ -421,6 +440,95 @@ final class ModelController extends AbstractController
         $this->entityManager->persist($transaction);
         $this->entityManager->flush();
 
-        return $this->json([], Response::HTTP_NO_CONTENT);
+        return $this->json(['model_id' => $model->getId()], Response::HTTP_OK);
+    }
+
+    #[Route("/predict", methods: ["POST"])]
+    public function predict(Request $request): Response
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $model = $this->modelRepository->find($data["model_id"]);
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $datafile = $this->datafileRepository->find($data["datafile_id"]);
+        if (!$datafile) {
+            return $this->json(['message' => 'Datafile not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $deployedTransaction = array_filter($model->getTransactions()->toArray(), function($transaction) {
+            return $transaction->isDeployed();
+        });
+
+        if (empty($deployedTransaction)) {
+            return $this->json(['message' => 'No deployed transaction found for this model'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Assuming only one deployed transaction exists, get the first one
+        $deployedTransaction = reset($deployedTransaction);
+
+        $response = $this->httpClient->request(
+            "POST",
+            "http://dalila-models_api-service:14506/predict",
+            [
+                "headers" => ["Content-Type" => "application/json"],
+                "json" => [
+                    "model_id" => $deployedTransaction->getId()->toString(),
+                    "datafile_id" => $data["datafile_id"],
+                    "features" => $data["features"],
+                    "model_type" => $model->getLibType(),
+                ],
+            ],
+        );
+        $responseData = json_decode($response->getContent(), true);
+
+        // Convert JSON data to CSV
+        $csv = Writer::createFromString('');
+        $csv->insertOne(['stock_id', 'time_id', 'prediction']); // Insert headers
+
+        foreach ($responseData as $row) {
+            $csv->insertOne($row);
+        }
+
+        // Create a Response object and set the content
+        $csvContent = $csv->toString();
+        $response = new Response($csvContent);
+        $disposition = $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, 'predictions.csv');
+        $response->headers->set('Content-Disposition', $disposition);
+        $response->headers->set('Content-Type', 'text/csv');
+
+        return $response;
+    }
+
+    #[Route("/deploy", methods: ["POST"])]
+    public function deploy(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $model = $this->modelRepository->find($data['model_id']);
+        if (!$model) {
+            return $this->json(['message' => 'Model not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $transaction = $this->transactionRepository->find($data['transaction_id']);
+        if (!$transaction || !$model->hasTransaction(Uuid::fromString($data['transaction_id']))) {
+            return $this->json(['message' => 'Transaction not exist!'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        // Set deployed to false for all transactions of the model
+        foreach ($model->getTransactions() as $modelTransaction) {
+            $modelTransaction->setDeployed(false);
+        }
+
+        $model->setDeployed(True);
+        $transaction->setDeployed(True);
+
+        $this->entityManager->persist($model);
+        $this->entityManager->persist($transaction);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Transaction deployed successfully!', Response::HTTP_OK]);
     }
 }

@@ -14,13 +14,6 @@ use Symfony\Component\Serializer\Annotation\Groups;
 #[ORM\Entity(repositoryClass: TransactionEntityRepository::class)]
 class TransactionEntity
 {
-    #[ORM\Id]
-    #[ORM\Column(type: "uuid", unique: true)]
-    #[ORM\GeneratedValue(strategy: "CUSTOM")]
-    #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
-    #[Groups(['transaction'])]
-    private UuidInterface $id;
-    
     #[Gedmo\Timestampable(on: "create")]
     #[ORM\Column(type: "datetime_immutable", nullable: true)]
     #[Groups(["transaction"])]
@@ -33,6 +26,10 @@ class TransactionEntity
 
     #[Pure]
     public function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: "uuid", unique: true)]
+        #[Groups(['transaction'])]
+        private UuidInterface $id,
         #[ORM\Column(type: "string", enumType: TransactionAction::class)]
         #[Groups(['transaction'])]
         private TransactionAction $action, #[ORM\Column(type: "string", nullable: true)]
@@ -47,12 +44,21 @@ class TransactionEntity
         #[ORM\OneToMany(targetEntity: PlotEntity::class, mappedBy: 'transaction', orphanRemoval: true)]
         #[Groups(['transaction'])]
         private Collection $plots = new ArrayCollection,
+        #[ORM\Column]
+        private ?bool $deployed = False,
     ) {
     }
 
     public function getId(): UuidInterface
     {
         return $this->id;
+    }
+
+    public function setId(UuidInterface $id): static
+    {
+        $this->id = $id;
+
+        return $this;
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -157,6 +163,18 @@ class TransactionEntity
                 $plot->setTransaction(null);
             }
         }
+
+        return $this;
+    }
+
+    public function isDeployed(): ?bool
+    {
+        return $this->deployed;
+    }
+
+    public function setDeployed(bool $deployed): static
+    {
+        $this->deployed = $deployed;
 
         return $this;
     }

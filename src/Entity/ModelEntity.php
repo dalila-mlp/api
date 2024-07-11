@@ -64,6 +64,9 @@ class ModelEntity
     #[Groups(['model', 'model.owner'])]
     private ?UserEntity $owner;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $libType = null;
+
     #[Pure] public function __construct(
         #[ORM\Column(type: "string")]
         #[Groups(['model'])]
@@ -252,6 +255,17 @@ class ModelEntity
         return $this;
     }
 
+    public function hasTransaction(UuidInterface $transactionId): bool
+    {
+        foreach ($this->transactions as $transaction) {
+            if ($transaction->getId()->equals($transactionId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @return Collection<int, MetricEntity>
      */
@@ -320,6 +334,18 @@ class ModelEntity
     public function setOwner(?UserEntity $owner): static
     {
         $this->owner = $owner;
+
+        return $this;
+    }
+
+    public function getLibType(): ?string
+    {
+        return $this->libType;
+    }
+
+    public function setLibType(string $libType): static
+    {
+        $this->libType = $libType;
 
         return $this;
     }

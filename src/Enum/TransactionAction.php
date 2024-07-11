@@ -8,5 +8,4 @@ enum TransactionAction: string
     case DEPLOY = 'deploy';
     case PREDICT = 'predict';
     case TRAIN = 'train';
-    case UPDATE = 'update';
 }
