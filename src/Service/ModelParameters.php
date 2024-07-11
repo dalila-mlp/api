@@ -41,7 +41,6 @@ class ModelParameters
                     new ModelParameter('kernel_size', 'int', 7),
                     new ModelParameter('pool_size', 'int', 3),
                     new ModelParameter('num_conv_layers', 'int', 2),
-                    new ModelParameter('num_class', 'int', 3),
                     new ModelParameter('hidden_units', 'int', 64),
                     new ModelParameter('optimizer', 'string', 'Adam'),
                     new ModelParameter('loss', 'string', 'categorical_crossentropy'),
@@ -50,16 +49,14 @@ class ModelParameters
             case ModelName::MLP:
                 return [
                     new ModelParameter('hidden_units', 'int', 64),
-                    new ModelParameter('input_shape', 'string', '(64, 64, 1)'),
+                    new ModelParameter('input_shape', 'string', '2,'),
                     new ModelParameter('num_hidden_layers', 'int', 2),
-                    new ModelParameter('num_class', 'int', 3),
                     new ModelParameter('optimizer', 'string', 'Adam'),
                     new ModelParameter('loss', 'string', 'categorical_crossentropy'),
                     new ModelParameter('epochs', 'int', 50),
                 ];
             case ModelName::XGBOOST:
                 return [
-                    new ModelParameter('num_class', 'int', 3),
                     new ModelParameter('learning_rate', 'float', 0.01),
                     new ModelParameter('max_depth', 'int', 5),
                     new ModelParameter('min_child_weight', 'int', 1),
@@ -112,27 +109,27 @@ class ModelParameters
                     new ModelParameter('max_iter', 'int', 1000),
                     new ModelParameter('tol', 'float', 1e-04),
                 ];
-            case ModelName::LINEAR_REGRESSION:
+            case ModelName::LINEAR:
                 return [
                     new ModelParameter('fit_intercept', 'bool', true),
                 ];
-            case ModelName::POLYNOMIAL_REGRESSION:
+            case ModelName::PR:
                 return [
                     new ModelParameter('degree', 'int', 2),
                     new ModelParameter('include_bias', 'bool', true),
                     new ModelParameter('order', 'string', 'C', '{"C", "F"}'),
                 ];
-            case ModelName::RANDOM_FOREST:
+            case ModelName::RF:
                 return [
                     new ModelParameter('n_estimators', 'int', 100),
                     new ModelParameter('criterion', 'string', 'squared_error', '{"squared_error", "absolute_error", "friedman_mse", "poisson"}'),
                     new ModelParameter('max_depth', 'int', null),
                     new ModelParameter('max_features', 'int', 1.0, ''),
                 ];
-            case ModelName::RIDGE:
+            case ModelName::RR:
                 return [
                     new ModelParameter('alpha', 'float', 1.0, '[0, inf)'),
-                    new ModelParameter('max_iter', 'int', null),
+                    new ModelParameter('max_iter', 'int', 100),
                     new ModelParameter('tol', 'float', 1e-04),
                     new ModelParameter('solver', 'string', 'auto', '{"auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga", "lbfgs"}'),
                 ];
