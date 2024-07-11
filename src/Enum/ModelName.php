@@ -13,7 +13,7 @@ enum ModelName: string
     case LASSO = 'Lasso Regression';
     case PR = 'Polynomial Regression';
     case SVR = 'Support Vector Regression';
-    case BAYES = 'Bayesian Network';
+    case BAYES = 'Bayesian Regression';
     case BAYES_RIDGE = 'Bayesian Ridge';
     case DT = 'Decision Tree';
     case RF = 'Random Forest';
