@@ -504,9 +504,15 @@ final class ModelController extends AbstractController
         );
         $responseData = json_decode($response->getContent(), true);
 
+        if (empty($responseData)) {
+            return $this->json(['message' => 'No prediction data returned'], Response::HTTP_BAD_REQUEST);
+        }
+
         // Convert JSON data to CSV
         $csv = Writer::createFromString('');
-        $csv->insertOne(['stock_id', 'time_id', 'prediction']); // Insert headers
+        // Insert headers based on the keys of the first element of the response data
+        $headers = array_keys(reset($responseData));
+        $csv->insertOne($headers);
 
         foreach ($responseData as $row) {
             $csv->insertOne($row);
